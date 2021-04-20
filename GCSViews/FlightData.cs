@@ -110,7 +110,7 @@ namespace MissionPlanner.GCSViews
         bool playingLog;
         GMapOverlay polygons;
         private Propagation prop;
-        Random random = new Random();
+        
         GMapRoute route;
         GMapOverlay routes;
         GMapOverlay adsbais;
@@ -351,7 +351,7 @@ namespace MissionPlanner.GCSViews
                     if (ctls.Length > 0)
                     {
                         QuickView QV = (QuickView) ctls[0];
-
+                        
                         // set description and unit
                         string desc = Settings.Instance["quickView" + f];
                         if (QV.Tag == null)
@@ -2176,10 +2176,17 @@ namespace MissionPlanner.GCSViews
 
             prop = new Propagation(gMapControl1);
 
-            thisthread = new Thread(mainloop);
-            thisthread.Name = "FD Mainloop";
-            thisthread.IsBackground = true;
-            thisthread.Start();
+            try
+            {
+                thisthread = new Thread(mainloop);
+                thisthread.Name = "FD Mainloop";
+                thisthread.IsBackground = true;
+                thisthread.Start();
+            }
+            catch (NotSupportedException)
+            {
+                mainloop();
+            }
         }
 
         private void FlightData_ParentChanged(object sender, EventArgs e)
@@ -2349,30 +2356,6 @@ namespace MissionPlanner.GCSViews
                     lng = MainV2.comPort.MAV.GuidedMode.y / 1e7
                 });
             }
-        }
-
-        Color GetColor()
-        {
-            //The mix color is set to the inverse of background color, so white background will get dark colors
-            Color mix = Color.FromArgb(ThemeManager.BGColor.ToArgb() ^ 0xffffff);
-
-            int red = random.Next(256);
-            int green = random.Next(256);
-            int blue = random.Next(256);
-
-            // mix the color
-            if (mix != null)
-            {
-                red = (red + mix.R) / 2;
-                green = (green + mix.G) / 2;
-                blue = (blue + mix.B) / 2;
-            }
-
-            var col = Color.FromArgb(red, green, blue);
-
-            this.LogInfo("GetColor() " + col);
-
-            return col;
         }
 
         private void gimbalTrackbar_Scroll(object sender, EventArgs e)
@@ -3044,6 +3027,8 @@ namespace MissionPlanner.GCSViews
                         OpenGLtest2.instance.LocationCenter = new PointLatLngAlt(MainV2.comPort.MAV.cs.lat,
                             MainV2.comPort.MAV.cs.lng, MainV2.comPort.MAV.cs.altasl / CurrentState.multiplieralt,
                             "here");
+                        OpenGLtest2.instance.Velocity = new Vector3(MainV2.comPort.MAV.cs.vx, MainV2.comPort.MAV.cs.vy,
+                            MainV2.comPort.MAV.cs.vz);
                         OpenGLtest2.instance.WPs = MainV2.comPort.MAV.wps.Values.Select(a => (Locationwp) a).ToList();
                     }
 
@@ -3652,8 +3637,8 @@ namespace MissionPlanner.GCSViews
 
         private void Messagetabtimer_Tick(object sender, EventArgs e)
         {
-            var newmsgcount = MainV2.comPort.MAV.cs.messages.Count;
-            if (messagecount != newmsgcount)
+            var messagetime = MainV2.comPort.MAV.cs.messages.LastOrDefault().time;
+            if (messagecount != messagetime.toUnixTime())
             {
                 try
                 {
@@ -3664,7 +3649,7 @@ namespace MissionPlanner.GCSViews
                     });
                     txt_messagebox.Text = message.ToString();
 
-                    messagecount = newmsgcount;
+                    messagecount = messagetime.toUnixTime();
                 }
                 catch (Exception ex)
                 {
@@ -4221,7 +4206,8 @@ namespace MissionPlanner.GCSViews
                 QV.DoubleClick += quickView_DoubleClick;
                 QV.ContextMenuStrip = contextMenuStripQuickView;
                 QV.Dock = DockStyle.Fill;
-                QV.numberColor = GetColor();
+                QV.numberColor = ThemeManager.getQvNumberColor();
+                QV.numberColorBackup = QV.numberColor;
                 QV.number = 0;
 
                 tableLayoutPanelQuick.Controls.Add(QV);
@@ -4711,6 +4697,8 @@ namespace MissionPlanner.GCSViews
                     MainV2.comPort.MAV.cs.UpdateCurrentSettings(
                         bindingSourceHud.UpdateDataSource(MainV2.comPort.MAV.cs));
                 }
+                //if the tab detached wi have to update it 
+                if (tabQuickDetached) MainV2.comPort.MAV.cs.UpdateCurrentSettings(bindingSourceQuickTab.UpdateDataSource(MainV2.comPort.MAV.cs));
 
                 lastscreenupdate = DateTime.Now;
             }
@@ -5231,6 +5219,45 @@ namespace MissionPlanner.GCSViews
 
             hud1.displayCellVoltage = true;
             hud1.batterycellcount = iCellCount;
+        }
+        private bool tabQuickDetached = false;
+
+        private void undockDockToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+            Form dropout = new Form();
+            TabControl tab = new TabControl();
+            dropout.FormBorderStyle = FormBorderStyle.Sizable;
+            dropout.ShowInTaskbar = false;
+            dropout.Size = new Size(300, 450);
+            tabQuickDetached = true;
+            tab.Appearance = TabAppearance.FlatButtons;
+            tab.ItemSize = new Size(0, 0);
+            tab.SizeMode = TabSizeMode.Fixed;
+            tab.Size = new Size(dropout.ClientSize.Width, dropout.ClientSize.Height + 22);
+            tab.Location = new Point(0, -22);
+
+            tab.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+
+            dropout.Text = "Flight DATA";
+            tabControlactions.Controls.Remove(tabQuick);
+            tab.Controls.Add(tabQuick);
+            tabQuick.BorderStyle = BorderStyle.Fixed3D;
+            dropout.FormClosed += dropoutQuick_FormClosed;
+            dropout.Controls.Add(tab);
+            dropout.RestoreStartupLocation();
+            dropout.Show();
+            tabQuickDetached = true;
+            (sender as ToolStripMenuItem).Visible = false;
+        }
+
+        void dropoutQuick_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            (sender as Form).SaveStartupLocation();
+            tabControlactions.Controls.Add(tabQuick);
+            tabControlactions.SelectedTab = tabQuick;
+            tabQuickDetached = false;
+            contextMenuStripQuickView.Items["undockToolStripMenuItem"].Visible = true;
         }
     }
 }

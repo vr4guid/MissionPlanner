@@ -11,6 +11,7 @@ using ProjNet.CoordinateSystems.Transformations;
 using GeoUtility;
 using GeoUtility.GeoSystem;
 using System.Collections;
+using GeoAPI.Geometries;
 
 namespace MissionPlanner.Utilities
 {
@@ -176,6 +177,18 @@ namespace MissionPlanner.Utilities
             return zone;
         }
 
+        public int GetLngStartFromZone()
+        {
+            int zone = GetUTMZone();
+            return ((Math.Abs(zone) * 6) - 180) - 6;
+        }
+
+        public int GetLngEndFromZone()
+        {
+            int zone = GetUTMZone();
+            return ((Math.Abs(zone) * 6) - 180);
+        }
+
         public string GetFriendlyZone()
         {
             return GetUTMZone().ToString("0N;0S");
@@ -188,6 +201,16 @@ namespace MissionPlanner.Utilities
             MGRS mgrs = (MGRS)geo;
 
             return mgrs.ToString();
+        }
+
+        public static Coordinate[] Transform(Coordinate[] points, string sourceCoordinateSystemString, string targetCoordinateSystemString = "GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",SPHEROID[\"WGS_1984\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.0174532925199433]]")
+        {
+            CoordinateSystemFactory coordinateSystemFactory = new CoordinateSystemFactory();
+            ICoordinateSystem sourceCoordinateSystem = coordinateSystemFactory.CreateFromWkt(sourceCoordinateSystemString);
+            ICoordinateSystem targetCoordinateSystem = coordinateSystemFactory.CreateFromWkt(targetCoordinateSystemString);
+            ICoordinateTransformation trans = (new CoordinateTransformationFactory()).CreateFromCoordinateSystems(sourceCoordinateSystem, targetCoordinateSystem);
+
+            return trans.MathTransform.TransformList(points).ToArray();
         }
 
         public static PointLatLngAlt FromUTM(int zone,double x, double y)
@@ -247,6 +270,13 @@ namespace MissionPlanner.Utilities
             list.ForEach(x => { data.Add((double[])x); });
 
             return trans.MathTransform.TransformList(data).ToList();
+        }
+
+        public static double[] ToUTM(int utmzone, double lat, double lng)
+        {
+            ICoordinateTransformation trans = TryGetTransform(utmzone, lat);
+
+            return trans.MathTransform.Transform(new double[] { lng, lat});
         }
 
 

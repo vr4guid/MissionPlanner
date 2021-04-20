@@ -46,6 +46,8 @@ namespace Xamarin.GCSViews
             size = Device.Info.ScaledScreenSize;
             size = Device.Info.PixelScreenSize;
 
+            Xamarin.Forms.Platform.WinForms.Forms.UIThread = Thread.CurrentThread.ManagedThreadId;
+
             var scale = size.Width / size.Height; // 1.77 1.6  1.33
 
             if (scale < 1)
@@ -60,7 +62,16 @@ namespace Xamarin.GCSViews
             }
 
             if (Device.RuntimePlatform == Device.macOS || Device.RuntimePlatform == Device.UWP)
+            {
                 size = Device.Info.PixelScreenSize;
+                // scale if higher than full hd
+                if (size.Width > 1920)
+                {
+                    size.Width /= 2;
+                    size.Height /= 2;
+
+                }
+            }
 
             Instance = this;
             try
@@ -73,6 +84,12 @@ namespace Xamarin.GCSViews
             // init seril port type
             SerialPort.DefaultType = (self, s, i) =>
             {
+                if (Device.RuntimePlatform == Device.macOS)
+                {
+                    Log.Info(TAG, "SerialPort.DefaultType in " + s + " " + i + " for " + Device.RuntimePlatform);
+                    return new MonoSerialPort();
+                }
+
                 return Task.Run(async () =>
                 {
                     Log.Info(TAG, "SerialPort.DefaultType in " + s + " " + i);
@@ -136,16 +153,28 @@ namespace Xamarin.GCSViews
                 return list1;
             };
             /*
-            // support for fw upload
-            MissionPlanner.GCSViews.ConfigurationView.ConfigFirmwareManifest.ExtraDeviceInfo += () =>
-            {
-                return Task.Run(async () => { return await Test.UsbDevices.GetDeviceInfoList(); }).Result;
-            };
+// support for fw upload
+MissionPlanner.GCSViews.ConfigurationView.ConfigFirmwareManifest.ExtraDeviceInfo += () =>
+{
+    return Task.Run(async () => { return await Test.UsbDevices.GetDeviceInfoList(); }).Result;
+};
 
-            MissionPlanner.GCSViews.ConfigurationView.ConfigFirmware.ExtraDeviceInfo += () =>
+MissionPlanner.GCSViews.ConfigurationView.ConfigFirmware.ExtraDeviceInfo += () =>
+{
+    return Task.Run(async () => { return await Test.UsbDevices.GetDeviceInfoList(); }).Result;
+};*/
+        }
+
+        public static void SetHUDbg(byte[] buffer)
+        {
+            try
             {
-                return Task.Run(async () => { return await Test.UsbDevices.GetDeviceInfoList(); }).Result;
-            };*/
+                MissionPlanner.GCSViews.FlightData.myhud.bgimage = Bitmap.FromStream(new MemoryStream(buffer));
+            }
+            catch (Exception ex)
+            {
+                Log.Error("MP", ex.ToString());
+            }
         }
 
         private void RestoreFiles()
@@ -186,7 +215,7 @@ namespace Xamarin.GCSViews
                     files.mavcmd);
 
 
-                {
+                try {
                         var pluginsdir = Settings.GetRunningDirectory() + "plugins";
                         Directory.CreateDirectory(pluginsdir);
 
@@ -224,9 +253,9 @@ namespace Xamarin.GCSViews
 
                             }
                         }
-                    }
+                    } catch { }
 
-                    {
+                    try {
                         var graphsdir = Settings.GetRunningDirectory() + "graphs";
                         Directory.CreateDirectory(graphsdir);
 
@@ -252,7 +281,7 @@ namespace Xamarin.GCSViews
 
                             }
                         }
-                    }
+                    } catch { }
             }
             catch (Exception ex)
             {

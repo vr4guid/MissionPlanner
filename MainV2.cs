@@ -36,6 +36,7 @@ using MissionPlanner.Utilities.HW;
 using Transitions;
 using System.Linq;
 using MissionPlanner.Joystick;
+using System.Net;
 
 namespace MissionPlanner
 {
@@ -427,7 +428,7 @@ namespace MissionPlanner
         /// </summary>
         public static string comPortName = "";
 
-        public static int comPortBaud = 115200;
+        public static int comPortBaud = 57600;
 
         /// <summary>
         /// mono detection
@@ -550,14 +551,14 @@ namespace MissionPlanner
                 AutoHideMenu(true);
                 Settings.Instance["menu_autohide"] = true.ToString();
                 autoHideToolStripMenuItem.Visible = false;
-            } 
+            }
             else if (Settings.Instance.GetBoolean("menu_autohide"))
             {
                 AutoHideMenu(Settings.Instance.GetBoolean("menu_autohide"));
                 Settings.Instance["menu_autohide"] = Settings.Instance.GetBoolean("menu_autohide").ToString();
             }
 
-            
+
 
             //Flight data page
             if (MainV2.instance.FlightData != null)
@@ -658,7 +659,7 @@ namespace MissionPlanner
 
             if (MainV2.instance.FlightPlanner != null)
             {
-                //hide menu items 
+                //hide menu items
                 MainV2.instance.FlightPlanner.updateDisplayView();
             }
         }
@@ -672,7 +673,7 @@ namespace MissionPlanner
 
             // create one here - but override on load
             Settings.Instance["guid"] = Guid.NewGuid().ToString();
-            
+
             //Check for -config argument, and if it is an xml extension filename then use that for config
             if (Program.args.Length > 0 && Program.args.Contains("-config"))
             {
@@ -723,10 +724,10 @@ namespace MissionPlanner
 
             //Init Theme table and load BurntKermit as a default
             ThemeManager.thmColor = new ThemeColorTable(); //Init colortable
-            ThemeManager.thmColor.InitColors();     //This fills up the table with BurntKermit defaults. 
+            ThemeManager.thmColor.InitColors();     //This fills up the table with BurntKermit defaults.
             ThemeManager.thmColor.SetTheme();              //Set the colors, this need to handle the case when not all colors are defined in the theme file
 
- 
+
 
             if (Settings.Instance["theme"] == null) Settings.Instance["theme"] = "BurntKermit.mpsystheme";
 
@@ -743,7 +744,7 @@ namespace MissionPlanner
 
             // define default basestream
             comPort.BaseStream = new SerialPort();
-            comPort.BaseStream.BaudRate = 115200;
+            comPort.BaseStream.BaudRate = 57600;
 
             _connectionControl = toolStripConnectionControl.ConnectionControl;
             _connectionControl.CMB_baudrate.TextChanged += this.CMB_baudrate_TextChanged;
@@ -774,13 +775,15 @@ namespace MissionPlanner
                 MainV2.comPort.MAV.cs.messageHigh = s;
             };
 
+            Warnings.WarningEngine.QuickPanelColoring += WarningEngine_QuickPanelColoring;
+
             // proxy loader - dll load now instead of on config form load
             new Transition(new TransitionType_EaseInEaseOut(2000));
 
             PopulateSerialportList();
             if (_connectionControl.CMB_serialport.Items.Count > 0)
             {
-                _connectionControl.CMB_baudrate.SelectedIndex = 8;
+                _connectionControl.CMB_baudrate.SelectedIndex = 7;
                 _connectionControl.CMB_serialport.SelectedIndex = 0;
             }
             // ** Done
@@ -953,7 +956,7 @@ namespace MissionPlanner
                         Settings.Instance.GetInt32("MainLocY"));
 
                     // fix common bug which happens when user removes a monitor, the app shows up
-                    // offscreen and it is very hard to move it onscreen.  Also happens with 
+                    // offscreen and it is very hard to move it onscreen.  Also happens with
                     // remote desktop a lot.  So this only restores position if the position
                     // is visible.
                     foreach (Screen s in Screen.AllScreens)
@@ -1185,7 +1188,7 @@ namespace MissionPlanner
 
         public void switchicons(menuicons icons)
         {
-            //Check if we starting 
+            //Check if we starting
             if (displayicons != null)
             {
                 // dont update if no change
@@ -1281,7 +1284,7 @@ namespace MissionPlanner
         private void ResetConnectionStats()
         {
             log.Info("Reset connection stats");
-            // If the form has been closed, or never shown before, we need do nothing, as 
+            // If the form has been closed, or never shown before, we need do nothing, as
             // connection stats will be reset when shown
             if (this.connectionStatsForm != null && connectionStatsForm.Visible)
             {
@@ -1330,8 +1333,10 @@ namespace MissionPlanner
         private void PopulateSerialportList()
         {
             _connectionControl.CMB_serialport.Items.Clear();
+
             _connectionControl.CMB_serialport.Items.Add("AUTO");
             _connectionControl.CMB_serialport.Items.AddRange(SerialPort.GetPortNames());
+
             _connectionControl.CMB_serialport.Items.Add("TCP");
             _connectionControl.CMB_serialport.Items.Add("UDP");
             _connectionControl.CMB_serialport.Items.Add("UDPCl");
@@ -1678,7 +1683,7 @@ namespace MissionPlanner
                             var paramfile = paramfileTask.Result;
                             if (paramfile != null && paramfile.Length > 0)
                             {
-                                var mavlist = parampck.unpack(paramfile.GetBuffer());
+                                var mavlist = parampck.unpack(paramfile.ToArray());
                                 if (mavlist != null)
                                 {
                                     comPort.MAVlist[comPort.MAV.sysid, comPort.MAV.compid].param.Clear();
@@ -1714,7 +1719,7 @@ namespace MissionPlanner
                     }
                 }
 
-                _connectionControl.UpdateSysIDS();             
+                _connectionControl.UpdateSysIDS();
 
                 // check for newer firmware
                 Task.Run(() =>
@@ -1825,7 +1830,7 @@ namespace MissionPlanner
                     }
                     catch (Exception ex) { log.Warn(ex); }
                 }
-                //Add HUD custom items source 
+                //Add HUD custom items source
                 HUD.Custom.src = MainV2.comPort.MAV.cs;
 
                 // set connected icon
@@ -1993,9 +1998,9 @@ namespace MissionPlanner
 
 
         /// <summary>
-        /// overriding the OnCLosing is a bit cleaner than handling the event, since it 
+        /// overriding the OnCLosing is a bit cleaner than handling the event, since it
         /// is this object.
-        /// 
+        ///
         /// This happens before FormClosed
         /// </summary>
         /// <param name="e"></param>
@@ -2260,7 +2265,7 @@ namespace MissionPlanner
             while (joystickthreadrun)
             {
                 joysendThreadExited = false;
-                //so we know this thread is stil alive.           
+                //so we know this thread is stil alive.
                 try
                 {
                     if (MONO)
@@ -2345,7 +2350,7 @@ namespace MissionPlanner
 
                                         lastratechange = DateTime.Now;
                                     }
-                                 
+
                                 }
                                 */
                                     //                                Console.WriteLine(DateTime.Now.Millisecond + " {0} {1} {2} {3} {4}", rc.chan1_raw, rc.chan2_raw, rc.chan3_raw, rc.chan4_raw,rate);
@@ -2413,7 +2418,7 @@ namespace MissionPlanner
                 {
                 } // cant fall out
             }
-            joysendThreadExited = true; //so we know this thread exited.    
+            joysendThreadExited = true; //so we know this thread exited.
         }
 
         /// <summary>
@@ -2539,7 +2544,7 @@ namespace MissionPlanner
         /// link quality stats
         /// speech voltage - custom - alt warning - data lost
         /// heartbeat packet sending
-        /// 
+        ///
         /// and can't fall out
         /// </summary>
         private async void SerialReader()
@@ -3051,7 +3056,8 @@ namespace MissionPlanner
                 {
                     log.Info("Load Pluggins");
                     Plugin.PluginLoader.DisabledPluginNames.Clear();
-                    foreach (var s in Settings.Instance.GetList("DisabledPlugins")) Plugin.PluginLoader.DisabledPluginNames.Add(s);
+                    foreach (var s in Settings.Instance.GetList("DisabledPlugins"))
+                        Plugin.PluginLoader.DisabledPluginNames.Add(s);
                     Plugin.PluginLoader.LoadAll();
                     log.Info("Load Pluggins... Done");
                 }
@@ -3099,38 +3105,59 @@ namespace MissionPlanner
             }
 
             log.Info("start joystick");
-            // setup joystick packet sender
-            joystickthread = new Thread(new ThreadStart(joysticksend))
+            try
             {
-                IsBackground = true,
-                Priority = ThreadPriority.AboveNormal,
-                Name = "Main joystick sender"
-            };
-            joystickthread.Start();
+                // setup joystick packet sender
+                joystickthread = new Thread(new ThreadStart(joysticksend))
+                {
+                    IsBackground = true,
+                    Priority = ThreadPriority.AboveNormal,
+                    Name = "Main joystick sender"
+                };
+                joystickthread.Start();
+            }
+            catch (NotSupportedException ex)
+            {
+                log.Error(ex);
+            }
 
             log.Info("start serialreader");
-            // setup main serial reader
-            serialreaderthread = new Thread(SerialReader)
+            try
             {
-                IsBackground = true,
-                Name = "Main Serial reader",
-                Priority = ThreadPriority.AboveNormal
-            };
-            serialreaderthread.Start();
+                // setup main serial reader
+                serialreaderthread = new Thread(SerialReader)
+                {
+                    IsBackground = true,
+                    Name = "Main Serial reader",
+                    Priority = ThreadPriority.AboveNormal
+                };
+                serialreaderthread.Start();
+            }
+            catch (NotSupportedException ex)
+            {
+                log.Error(ex);
+            }
 
             log.Info("start plugin thread");
-            // setup main plugin thread
-            pluginthread = new Thread(PluginThread)
+            try
             {
-                IsBackground = true,
-                Name = "plugin runner thread",
-                Priority = ThreadPriority.BelowNormal
-            };
-            pluginthread.Start();
+                // setup main plugin thread
+                pluginthread = new Thread(PluginThread)
+                {
+                    IsBackground = true,
+                    Name = "plugin runner thread",
+                    Priority = ThreadPriority.BelowNormal
+                };
+                pluginthread.Start();
+            }
+            catch (NotSupportedException ex)
+            {
+                log.Error(ex);
+            }
 
 
             ThreadPool.QueueUserWorkItem(LoadGDALImages);
-            
+
             ThreadPool.QueueUserWorkItem(BGLoadAirports);
 
             ThreadPool.QueueUserWorkItem(BGCreateMaps);
@@ -3166,24 +3193,27 @@ namespace MissionPlanner
                 try
                 {
                     log.Info("AutoConnect.NewMavlinkConnection " + serial.PortName);
-                    MainV2.instance.BeginInvoke((Action)delegate
-                   {
-                       if (MainV2.comPort.BaseStream.IsOpen)
-                       {
-                           var mav = new MAVLinkInterface();
-                           mav.BaseStream = serial;
-                           MainV2.instance.doConnect(mav, "preset", serial.PortName);
+                    MainV2.instance.BeginInvoke((Action) delegate
+                    {
+                        if (MainV2.comPort.BaseStream.IsOpen)
+                        {
+                            var mav = new MAVLinkInterface();
+                            mav.BaseStream = serial;
+                            MainV2.instance.doConnect(mav, "preset", serial.PortName);
 
-                           MainV2.Comports.Add(mav);
-                       }
-                       else
-                       {
-                           MainV2.comPort.BaseStream = serial;
-                           MainV2.instance.doConnect(MainV2.comPort, "preset", serial.PortName);
-                       }
-                   });
+                            MainV2.Comports.Add(mav);
+                        }
+                        else
+                        {
+                            MainV2.comPort.BaseStream = serial;
+                            MainV2.instance.doConnect(MainV2.comPort, "preset", serial.PortName);
+                        }
+                    });
                 }
-                catch (Exception ex) { log.Error(ex); }
+                catch (Exception ex)
+                {
+                    log.Error(ex);
+                }
             };
             AutoConnect.NewVideoStream += (sender, gststring) =>
             {
@@ -3197,7 +3227,7 @@ namespace MissionPlanner
                         if (CustomMessageBox.Show(
                                 "A video stream has been detected, but gstreamer has not been configured/installed.\nDo you want to install/config it now?",
                                 "GStreamer", System.Windows.Forms.MessageBoxButtons.YesNo) ==
-                            (int)System.Windows.Forms.DialogResult.Yes)
+                            (int) System.Windows.Forms.DialogResult.Yes)
                         {
                             {
                                 ProgressReporterDialogue prd = new ProgressReporterDialogue();
@@ -3241,7 +3271,7 @@ namespace MissionPlanner
                     if (firmware == "")
                         return null;
 
-                    var modes = ArduPilot.Common.getModesList((Firmwares)Enum.Parse(typeof(Firmwares), firmware));
+                    var modes = ArduPilot.Common.getModesList((Firmwares) Enum.Parse(typeof(Firmwares), firmware));
                     string currentmode = null;
 
                     foreach (var mode in modes)
@@ -3332,7 +3362,65 @@ namespace MissionPlanner
 
             try
             {
+                object locker = new object();
+                List<string> seen = new List<string>();
+
+                ZeroConf.StartUDPMavlink += (zeroconfHost) =>
+                 {
+                     try
+                     {
+                         var ip = zeroconfHost.IPAddress;
+                         var service = zeroconfHost.Services.Where(a => a.Key == "_mavlink._udp.local.");
+                         var port = service.First().Value.Port;
+
+                         lock (locker)
+                         {
+                             if (Comports.Any((a) =>
+                             {
+                                 return a.BaseStream.PortName == "UDPCl" + port.ToString();
+                             }))
+                                 return;
+
+                             if (seen.Contains(zeroconfHost.Id))
+                                 return;
+
+                             if (CustomMessageBox.Show(
+                       "A Mavlink stream has been detected, " + zeroconfHost.DisplayName + "(" + zeroconfHost.Id + "). Would you like to connect to it?",
+                       "Mavlink", System.Windows.Forms.MessageBoxButtons.YesNo) ==
+                   (int)System.Windows.Forms.DialogResult.Yes)
+                             {
+                                 var mav = new MAVLinkInterface();
+
+                                 var udc = new UdpSerialConnect();
+                                 udc.Port = port.ToString();
+                                 udc.client = new UdpClient(ip, port);
+                                 udc.IsOpen = true;
+                                 udc.hostEndPoint = new IPEndPoint(IPAddress.Parse(ip), port);
+                                 mav.BaseStream = udc;
+
+                                 MainV2.instance.Invoke((Action)delegate
+                                 {
+                                     MainV2.instance.doConnect(mav, "preset", port.ToString());
+
+                                     MainV2.Comports.Add(mav);
+
+                                     MainV2._connectionControl.UpdateSysIDS();
+                                 });
+
+                             }
+                             // add to seen list, so we skip on next refresh
+                             seen.Add(zeroconfHost.Id);
+                         }
+                     }
+                     catch (Exception ex)
+                     {
+
+                     }
+                 };
+
                 ZeroConf.EnumerateAllServicesFromAllHosts().ContinueWith(a => ZeroConf.ProbeForRTSP());
+
+                ZeroConf.EnumerateAllServicesFromAllHosts().ContinueWith(a => ZeroConf.ProbeForMavlink());
             }
             catch
             {
@@ -3344,13 +3432,13 @@ namespace MissionPlanner
                 {
                     log.Info("CommsSerialScan.doConnect invoke");
                     MainV2.instance.BeginInvoke(
-                        (Action)delegate ()
-                       {
-                           MAVLinkInterface mav = new MAVLinkInterface();
-                           mav.BaseStream = port;
-                           MainV2.instance.doConnect(mav, "preset", "0");
-                           MainV2.Comports.Add(mav);
-                       });
+                        (Action) delegate()
+                        {
+                            MAVLinkInterface mav = new MAVLinkInterface();
+                            mav.BaseStream = port;
+                            MainV2.instance.doConnect(mav, "preset", "0");
+                            MainV2.Comports.Add(mav);
+                        });
                 }
                 else
                 {
@@ -3452,19 +3540,19 @@ namespace MissionPlanner
                 if (cmds.ContainsKey("script") && File.Exists(cmds["script"]))
                 {
                     // invoke for after onload finished
-                    this.BeginInvoke((Action)delegate ()
-                   {
-                       try
-                       {
-                           FlightData.selectedscript = cmds["script"];
+                    this.BeginInvoke((Action) delegate()
+                    {
+                        try
+                        {
+                            FlightData.selectedscript = cmds["script"];
 
-                           FlightData.BUT_run_script_Click(null, null);
-                       }
-                       catch (Exception ex)
-                       {
-                           CustomMessageBox.Show("Start script failed: " + ex.ToString(), Strings.ERROR);
-                       }
-                   });
+                            FlightData.BUT_run_script_Click(null, null);
+                        }
+                        catch (Exception ex)
+                        {
+                            CustomMessageBox.Show("Start script failed: " + ex.ToString(), Strings.ERROR);
+                        }
+                    });
                 }
 
                 if (cmds.ContainsKey("joy") && cmds.ContainsKey("type"))
@@ -3548,7 +3636,7 @@ namespace MissionPlanner
                         if (CustomMessageBox.Show(
                                 "A video stream has been detected, but gstreamer has not been configured/installed.\nDo you want to install/config it now?",
                                 "GStreamer", System.Windows.Forms.MessageBoxButtons.YesNo) ==
-                            (int)System.Windows.Forms.DialogResult.Yes)
+                            (int) System.Windows.Forms.DialogResult.Yes)
                         {
                             GStreamerUI.DownloadGStreamer();
                         }
@@ -3556,42 +3644,42 @@ namespace MissionPlanner
 
                     try
                     {
-                        new Thread(delegate ()
-                        {
-                            // 36 retrys
-                            for (int i = 0; i < 36; i++)
+                        new Thread(delegate()
                             {
-                                try
+                                // 36 retrys
+                                for (int i = 0; i < 36; i++)
                                 {
-                                    var st = GStreamer.StartA(cmds["gstream"]);
-                                    if (st == null)
+                                    try
                                     {
-                                        // prevent spam
-                                        Thread.Sleep(5000);
-                                    }
-                                    else
-                                    {
-                                        while (st.IsAlive)
+                                        var st = GStreamer.StartA(cmds["gstream"]);
+                                        if (st == null)
                                         {
-                                            Thread.Sleep(1000);
+                                            // prevent spam
+                                            Thread.Sleep(5000);
+                                        }
+                                        else
+                                        {
+                                            while (st.IsAlive)
+                                            {
+                                                Thread.Sleep(1000);
+                                            }
                                         }
                                     }
+                                    catch (BadImageFormatException ex)
+                                    {
+                                        // not running on x64
+                                        log.Error(ex);
+                                        return;
+                                    }
+                                    catch (DllNotFoundException ex)
+                                    {
+                                        // missing or failed download
+                                        log.Error(ex);
+                                        return;
+                                    }
                                 }
-                                catch (BadImageFormatException ex)
-                                {
-                                    // not running on x64
-                                    log.Error(ex);
-                                    return;
-                                }
-                                catch (DllNotFoundException ex)
-                                {
-                                    // missing or failed download
-                                    log.Error(ex);
-                                    return;
-                                }
-                            }
-                        })
-                        { IsBackground = true, Name = "Gstreamer cli" }.Start();
+                            })
+                            {IsBackground = true, Name = "Gstreamer cli"}.Start();
                     }
                     catch (Exception ex)
                     {
@@ -4490,6 +4578,43 @@ namespace MissionPlanner
                         doConnect(mav, "preset", "0", false);
                         Comports.Add(mav);
                     });
+                }
+            }
+        }
+        //Handle QV panel coloring from warning engine
+        private void WarningEngine_QuickPanelColoring(string name, string color)
+        {
+            // return if we still initialize
+            if (FlightData == null) return;
+
+            //Find panel with
+            foreach (var q in FlightData.tabQuick.Controls["tableLayoutPanelQuick"].Controls)
+            {
+                QuickView qv = (QuickView)q;
+
+                //Get the data field name bind to the control
+                var fieldname = qv.DataBindings[0].BindingMemberInfo.BindingField;
+
+                if (fieldname == name)
+                {
+
+                    if (color == "NoColor")
+                    {
+                        qv.BackColor = ThemeManager.BGColor;
+                        qv.numberColor = qv.numberColorBackup;  //Restore original color from backup :)
+                        qv.ForeColor = ThemeManager.TextColor;
+
+
+                    }
+                    else
+                    {
+                        qv.BackColor = Color.FromName(color);
+                        // Ensure color is readable on the background
+                        qv.numberColor = (((qv.BackColor.R + qv.BackColor.B + qv.BackColor.G) / 3) > 128) ? Color.Black : Color.White;
+                        qv.ForeColor = qv.numberColor;      //Same as the number
+                    }
+                    //We have our panel, color it and exit loop
+                    break;
                 }
             }
         }

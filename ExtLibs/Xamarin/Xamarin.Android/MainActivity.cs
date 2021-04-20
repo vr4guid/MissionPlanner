@@ -30,6 +30,7 @@ using Settings = MissionPlanner.Utilities.Settings;
 using Thread = System.Threading.Thread;
 using Android.Content;
 using Android.Provider;
+using Android.Views.InputMethods;
 using Android.Widget;
 using Hoho.Android.UsbSerial.Util;
 using Java.Lang;
@@ -42,6 +43,7 @@ using Exception = System.Exception;
 using Process = Android.OS.Process;
 using String = System.String;
 using Toolbar = AndroidX.AppCompat.Widget.Toolbar;
+using View = Android.Views.View;
 
 [assembly: UsesFeature("android.hardware.usb.host", Required = false)]
 [assembly: UsesFeature("android.hardware.bluetooth", Required = false)]
@@ -68,6 +70,7 @@ namespace Xamarin.Droid
         public static MainActivity Current { private set; get; }
         public static readonly int PickImageId = 1000;
         private DeviceDiscoveredReceiver BTBroadcastReceiver;
+        private AndroidVideo androidvideo;
 
         public TaskCompletionSource<string> PickImageTaskCompletionSource { set; get; }
 
@@ -87,6 +90,19 @@ namespace Xamarin.Droid
                     PickImageTaskCompletionSource.SetResult(null);
                 }
             }
+        }
+
+        public static void ShowKeyboard(View pView) {
+            pView.RequestFocus();
+
+            InputMethodManager inputMethodManager = Current.GetSystemService(Context.InputMethodService) as InputMethodManager;
+            inputMethodManager.ShowSoftInput(pView, ShowFlags.Forced);
+            inputMethodManager.ToggleSoftInput(ShowFlags.Forced, HideSoftInputFlags.ImplicitOnly);
+        }
+
+        public static void HideKeyboard(View pView) {
+            InputMethodManager inputMethodManager = Current.GetSystemService(Context.InputMethodService) as InputMethodManager;
+            inputMethodManager.HideSoftInputFromWindow(pView.WindowToken, HideSoftInputFlags.None);
         }
 
         protected override void OnCreate(Bundle savedInstanceState)
@@ -117,8 +133,15 @@ namespace Xamarin.Droid
             Test.Radio = new Radio();
             Test.GPS = new GPS();
 
-          
+            androidvideo = new AndroidVideo();
+            //disable
+            //androidvideo.Start();
+            AndroidVideo.onNewImage += (e, o) => 
+            {
+                WinForms.SetHUDbg(o);
+            };
             
+
             //ConfigFirmwareManifest.ExtraDeviceInfo
             /*
             var intent = new global::Android.Content.Intent(Intent.ActionOpenDocumentTree);
@@ -439,7 +462,7 @@ namespace Xamarin.Droid
                                     readlen = socket.Receive(buffer);
                                     if ((readlen > 4) && (readlen >= (4 + buffer[3])))
                                     {
-                                        Log.Info(TAG, "Got " + ASCIIEncoding.ASCII.GetString(buffer, 4, buffer[3]));
+                                        //Log.Info(TAG, "Got " + ASCIIEncoding.ASCII.GetString(buffer, 4, buffer[3]));
                                     }
                                 } while (readlen > 0);
                                 socket.Close();
